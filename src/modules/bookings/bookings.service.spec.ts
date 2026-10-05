@@ -215,13 +215,19 @@ describe('BookingsService', () => {
   });
 
   it('returns booking details with pricing breakdown and payment status', async () => {
-    const result = await service.findOne('booking-1') as any;
+    const result = await service.findOne('booking-1', { id: 'user-1', type: 'user' }) as any;
 
     expect(prismaMock.booking.findUniqueOrThrow).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'booking-1' } }));
     expect(paymentsMock.getBreakdown).toHaveBeenCalledWith('booking-1');
     expect(result.paymentStatus).toBe('PENDING');
     expect(result.pricingBreakdown).toEqual(expect.objectContaining({ basePrice: 200, totalAmount: 200, currency: 'ZAR' }));
     expect(result.estimatedArrivalTime).toBeDefined();
+  });
+
+  it('refuses booking details to anyone who is not the customer, DJ or an admin', async () => {
+    await expect(service.findOne('booking-1', { id: 'someone-else', type: 'user' })).rejects.toThrow('do not have access');
+    await expect(service.findOne('booking-1', { id: 'provider-1', type: 'provider' })).resolves.toBeDefined();
+    await expect(service.findOne('booking-1', { id: 'admin-1', type: 'admin', role: 'ADMIN' })).resolves.toBeDefined();
   });
 
   it('accepts a booking and sends notifications to both parties', async () => {

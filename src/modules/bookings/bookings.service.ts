@@ -647,11 +647,34 @@ export class BookingsService {
     return bookings.map((b) => ({ ...b, service: byId.get(b.serviceId) ?? null }));
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, actor: { id: string; type?: string; role?: string }) {
     const booking = await this.prisma.booking.findUniqueOrThrow({
       where: { id },
-      include: { user: true, provider: { include: { currentLocation: true } }, payment: true, ratings: true },
+      // Explicit selects: the full user/provider rows carry passwordHash,
+      // twoFactorSecret and KYC data that must never reach the client.
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, avatarUrl: true, phone: true } },
+        provider: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            avatarUrl: true,
+            phone: true,
+            avgRating: true,
+            totalRatings: true,
+            currentLocation: true,
+          },
+        },
+        payment: true,
+        ratings: true,
+      },
     });
+    const isParty = booking.userId === actor.id || booking.providerId === actor.id;
+    const isAdmin = actor.type === 'admin' || String(actor.role ?? '').toUpperCase().includes('ADMIN');
+    if (!isParty && !isAdmin) {
+      throw new ForbiddenException('You do not have access to this booking');
+    }
     const service = await this.prisma.service.findUnique({
       where: { id: booking.serviceId },
       select: { id: true, name: true, pricingType: true, unitLabel: true },
