@@ -105,6 +105,7 @@ export class ProvidersService {
         avgRating: true,
         totalRatings: true,
         isAvailable: true,
+        createdAt: true,
         serviceCategories: {
           select: {
             category: { select: { id: true, name: true, slug: true, iconUrl: true } },
@@ -126,6 +127,7 @@ export class ProvidersService {
       latitude: provider.currentLocation ? Number(provider.currentLocation.latitude) : null,
       longitude: provider.currentLocation ? Number(provider.currentLocation.longitude) : null,
       address: provider.currentLocation?.address ?? null,
+      createdAt: provider.createdAt.toISOString(),
     }));
   }
 

@@ -9,6 +9,13 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private password?: string;
   private useTls = false;
   private tlsServername?: string;
+  /**
+   * Fallback store used whenever Redis isn't connected, so auth (refresh tokens,
+   * OTPs) keeps working on a single instance without Redis. Values don't survive
+   * a restart or span instances — configure REDIS_URL for anything real.
+   */
+  private readonly memory = new Map<string, { value: string; expiresAt: number | null }>();
+  private warnedFallback = false;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -118,34 +125,76 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  private useMemory(): boolean {
+    if (this.client?.status === 'ready') return false;
+    if (!this.warnedFallback) {
+      this.warnedFallback = true;
+      this.logger.warn('Redis unavailable — using in-memory fallback (single instance, not persisted). Set REDIS_URL.');
+    }
+    return true;
+  }
+
+  private memoryGet(key: string): string | null {
+    const entry = this.memory.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt !== null && entry.expiresAt <= Date.now()) {
+      this.memory.delete(key);
+      return null;
+    }
+    return entry.value;
+  }
+
   async get(key: string): Promise<string | null> {
+    if (this.useMemory()) return this.memoryGet(key);
     return this.withMovedRedirect((client) => client.get(key));
   }
 
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    if (this.useMemory()) {
+      this.memory.set(key, { value, expiresAt: ttlSeconds ? Date.now() + ttlSeconds * 1000 : null });
+      return;
+    }
     await this.withMovedRedirect((client) =>
       ttlSeconds ? client.setex(key, ttlSeconds, value) : client.set(key, value),
     );
   }
 
   async del(key: string): Promise<void> {
+    if (this.useMemory()) {
+      this.memory.delete(key);
+      return;
+    }
     await this.withMovedRedirect((client) => client.del(key));
   }
 
   async exists(key: string): Promise<boolean> {
+    if (this.useMemory()) return this.memoryGet(key) !== null;
     const result = await this.withMovedRedirect((client) => client.exists(key));
     return result === 1;
   }
 
   async incr(key: string): Promise<number> {
+    if (this.useMemory()) {
+      const next = Number(this.memoryGet(key) ?? 0) + 1;
+      const expiresAt = this.memory.get(key)?.expiresAt ?? null;
+      this.memory.set(key, { value: String(next), expiresAt });
+      return next;
+    }
     return this.withMovedRedirect((client) => client.incr(key));
   }
 
   async expire(key: string, ttlSeconds: number): Promise<void> {
+    if (this.useMemory()) {
+      const value = this.memoryGet(key);
+      if (value !== null) this.memory.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+      return;
+    }
     await this.withMovedRedirect((client) => client.expire(key, ttlSeconds));
   }
 
   async publish(channel: string, message: string): Promise<void> {
+    // No subscribers exist without Redis, so dropping the message is equivalent.
+    if (this.useMemory()) return;
     await this.withMovedRedirect((client) => client.publish(channel, message));
   }
 
