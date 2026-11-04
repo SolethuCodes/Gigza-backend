@@ -35,7 +35,7 @@ export class EmailService {
     html: string;
     text?: string;
   }) {
-    const from = this.config.get('EMAIL_FROM', 'noreply@e-rrands.co.za');
+    const from = this.config.get('EMAIL_FROM', 'Gigza <no-reply@gigza.app>');
     try {
       await this.transporter.sendMail({ from, ...options });
       this.logger.log(`Email sent to ${options.to}: ${options.subject}`);
@@ -53,7 +53,7 @@ export class EmailService {
     const from =
       override?.from?.trim() ||
       this.config.get<string>('EMAIL_FROM') ||
-      'noreply@e-rrands.co.za';
+      'Gigza <no-reply@gigza.app>';
     const transporter = nodemailer.createTransport({
       host,
       port,
@@ -63,25 +63,25 @@ export class EmailService {
     await transporter.sendMail({
       from,
       to,
-      subject: 'E-RRANDS admin email test',
-      text: 'This is a test email from the E-RRANDS admin console. Your email integration is working.',
-      html: '<p>This is a test email from the E-RRANDS admin console. Your email integration is working.</p>',
+      subject: 'Gigza admin email test',
+      text: 'This is a test email from the Gigza admin console. Your email integration is working.',
+      html: '<p>This is a test email from the Gigza admin console. Your email integration is working.</p>',
     });
   }
 
   async sendEmailVerification(to: string, code: string) {
     await this.send({
       to,
-      subject: 'Verify your E-RRANDS account',
+      subject: 'Verify your Gigza account',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">E-RRANDS — Any Service, Anytime.</h2>
+          <h2 style="color: #FF2D95;">Welcome to Gigza</h2>
           <p>Your email verification code is:</p>
-          <div style="background: #F0FDFA; border: 2px solid #0D9488; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #0D9488;">${code}</span>
+          <div style="background: #FFE8F3; border: 2px solid #FF2D95; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF2D95;">${code}</span>
           </div>
           <p>This code expires in 10 minutes.</p>
-          <p style="color: #6B7280; font-size: 12px;">If you didn't create an account with E-RRANDS, ignore this email.</p>
+          <p style="color: #6B7280; font-size: 12px;">If you didn't create an account with Gigza, ignore this email.</p>
         </div>
       `,
     });
@@ -93,14 +93,14 @@ export class EmailService {
     const resetUrl = `${resetBaseUrl}${separator}token=${encodeURIComponent(token)}`;
     await this.send({
       to,
-      subject: 'Reset your E-RRANDS password',
+      subject: 'Reset your Gigza password',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">Password Reset Request</h2>
+          <h2 style="color: #FF2D95;">Password Reset Request</h2>
           <p>Hi ${firstName},</p>
           <p>We received a request to reset your password. Click the button below to continue:</p>
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background: #0D9488; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+            <a href="${resetUrl}" style="background: #FF2D95; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold;">
               Reset Password
             </a>
           </div>
@@ -113,14 +113,14 @@ export class EmailService {
   async sendPasswordResetOtp(to: string, firstName: string, code: string) {
     await this.send({
       to,
-      subject: 'Your E-RRANDS password reset code',
+      subject: 'Your Gigza password reset code',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">Password Reset Code</h2>
+          <h2 style="color: #FF2D95;">Password Reset Code</h2>
           <p>Hi ${firstName},</p>
           <p>We received a request to reset your password. Use the code below in the app to continue:</p>
-          <div style="background: #F0FDFA; border: 2px solid #0D9488; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #0D9488;">${code}</span>
+          <div style="background: #FFE8F3; border: 2px solid #FF2D95; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF2D95;">${code}</span>
           </div>
           <p>This code expires in 10 minutes. If you did not request this, ignore this email.</p>
         </div>
@@ -131,14 +131,14 @@ export class EmailService {
   async sendPasswordChangeOtp(to: string, firstName: string, code: string) {
     await this.send({
       to,
-      subject: 'Confirm your E-RRANDS admin password change',
+      subject: 'Confirm your Gigza admin password change',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">Confirm password change</h2>
+          <h2 style="color: #FF2D95;">Confirm password change</h2>
           <p>Hi ${firstName},</p>
           <p>Enter this code in the admin console to verify it's you, then choose a new password:</p>
-          <div style="background: #F0FDFA; border: 2px solid #0D9488; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #0D9488;">${code}</span>
+          <div style="background: #FFE8F3; border: 2px solid #FF2D95; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF2D95;">${code}</span>
           </div>
           <p>This code expires in 10 minutes. If you didn't start this, ignore this email and your password stays the same.</p>
         </div>
@@ -152,11 +152,11 @@ export class EmailService {
       subject: 'Confirm the provider verification',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">Confirm provider verification</h2>
+          <h2 style="color: #FF2D95;">Confirm provider verification</h2>
           <p>Hi ${firstName},</p>
           <p>You are about to approve the KYC verification for <strong>${providerName}</strong>. Enter this code in the admin console to confirm:</p>
-          <div style="background: #F0FDFA; border: 2px solid #0D9488; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
-            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #0D9488;">${code}</span>
+          <div style="background: #FFE8F3; border: 2px solid #FF2D95; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+            <span style="font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #FF2D95;">${code}</span>
           </div>
           <p>This code expires in 10 minutes. If you did not start this approval, ignore this email and review your account activity.</p>
         </div>
@@ -177,13 +177,13 @@ export class EmailService {
       subject: `Booking Confirmed — ${bookingDetails.serviceName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">Booking Confirmed!</h2>
+          <h2 style="color: #FF2D95;">Booking Confirmed!</h2>
           <p>Hi ${bookingDetails.firstName},</p>
           <p>Your service has been booked successfully.</p>
           <table style="width: 100%; border-collapse: collapse;">
             <tr><td style="padding: 8px; border-bottom: 1px solid #E5E7EB;"><strong>Booking ID</strong></td><td>${bookingDetails.bookingId}</td></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #E5E7EB;"><strong>Service</strong></td><td>${bookingDetails.serviceName}</td></tr>
-            <tr><td style="padding: 8px; border-bottom: 1px solid #E5E7EB;"><strong>Provider</strong></td><td>${bookingDetails.providerName}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #E5E7EB;"><strong>DJ</strong></td><td>${bookingDetails.providerName}</td></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #E5E7EB;"><strong>Date</strong></td><td>${bookingDetails.date}</td></tr>
             <tr><td style="padding: 8px;"><strong>Amount</strong></td><td>R${bookingDetails.price}</td></tr>
           </table>
@@ -198,8 +198,8 @@ export class EmailService {
       to,
       subject,
       html: approved
-        ? `<div style="font-family: Arial, sans-serif; color: #0F1C34;"><h2 style="color: #0F1C34;">You're verified on E-RRANDS</h2><p>Hi ${escapeHtml(firstName)}, your identity check is complete. You can now appear in customer search and accept paid jobs.</p></div>`
-        : `<div style="font-family: Arial, sans-serif; color: #0F1C34;"><h2>Verification needs another try</h2><p>Hi ${escapeHtml(firstName)}, we could not complete your identity check: ${escapeHtml(reason ?? 'Please restart verification in the app with a clear ID photo and selfie.')}</p></div>`,
+        ? `<div style="font-family: Arial, sans-serif; color: #0A0A0A;"><h2 style="color: #0A0A0A;">You're verified on Gigza</h2><p>Hi ${escapeHtml(firstName)}, your identity check is complete. You can now appear in host search and accept paid gigs.</p></div>`
+        : `<div style="font-family: Arial, sans-serif; color: #0A0A0A;"><h2>Verification needs another try</h2><p>Hi ${escapeHtml(firstName)}, we could not complete your identity check: ${escapeHtml(reason ?? 'Please restart verification in the app with a clear ID photo and selfie.')}</p></div>`,
     });
   }
 
@@ -213,11 +213,11 @@ export class EmailService {
     const { to, firstName, roleName, oneTimePassword } = params;
     await this.send({
       to,
-      subject: 'You have been given access to the E-RRANDS admin console',
+      subject: 'You have been given access to the Gigza admin console',
       text: [
         `Hi ${firstName},`,
         '',
-        'You have been invited to the E-RRANDS administrator console.',
+        'You have been invited to the Gigza administrator console.',
         `Your role: ${roleName}`,
         '',
         'To sign in for the first time:',
@@ -232,16 +232,16 @@ export class EmailService {
       html: `
         <!doctype html>
         <html>
-          <body style="margin:0;padding:24px;background:#F5F7FA;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#0F1C34;">
+          <body style="margin:0;padding:24px;background:#F5F7FA;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#0A0A0A;">
             <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #E5E7EB;">
-              <div style="background:linear-gradient(118deg,#0F1C34 0%,#1A2C5B 72%,#0F1C34 100%);padding:22px 28px;">
-                <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#BDA375;">E-RRANDS</p>
+              <div style="background:#FF2D95;background:linear-gradient(118deg,#FF2D95 0%,#8B5CF6 100%);padding:22px 28px;">
+                <p style="margin:0;font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#FFFFFF;">Gigza</p>
                 <h1 style="margin:8px 0 0;font-size:20px;color:#ffffff;">You've been given dashboard access</h1>
               </div>
-              <div style="height:2px;background:#BDA375;"></div>
+              <div style="height:2px;background:#8B5CF6;"></div>
               <div style="padding:28px;">
                 <p style="margin:0 0 16px;">Hi ${escapeHtml(firstName)},</p>
-                <p style="margin:0 0 16px;">You have been invited to the E-RRANDS administrator console.</p>
+                <p style="margin:0 0 16px;">You have been invited to the Gigza administrator console.</p>
                 <p style="margin:0 0 20px;">Your role: <strong>${escapeHtml(roleName)}</strong></p>
                 <h2 style="margin:0 0 12px;font-size:15px;">Signing in for the first time</h2>
                 <ol style="margin:0 0 20px;padding-left:20px;line-height:1.7;">
@@ -250,13 +250,13 @@ export class EmailService {
                   <li>Password: your <strong>administrator ID</strong> (one-time only).</li>
                   <li>You will then choose your own permanent password.</li>
                 </ol>
-                <div style="margin:0 0 20px;padding:14px 16px;background:#FBF8F1;border:1px solid #E8D9B5;border-radius:12px;">
-                  <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#8A7048;">Administrator ID / one-time password</p>
-                  <p style="margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;word-break:break-all;color:#0F1C34;">${escapeHtml(oneTimePassword)}</p>
+                <div style="margin:0 0 20px;padding:14px 16px;background:#F1ECFE;border:1px solid #D9CCFD;border-radius:12px;">
+                  <p style="margin:0 0 6px;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:#8B5CF6;">Administrator ID / one-time password</p>
+                  <p style="margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;word-break:break-all;color:#0A0A0A;">${escapeHtml(oneTimePassword)}</p>
                 </div>
                 <p style="margin:0 0 24px;">
                   <a href="${escapeHtml(loginUrl)}"
-                     style="display:inline-block;background:#0F1C34;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:10px;font-weight:600;">
+                     style="display:inline-block;background:#0A0A0A;color:#ffffff;text-decoration:none;padding:11px 20px;border-radius:10px;font-weight:600;">
                     Sign in
                   </a>
                 </p>
@@ -285,11 +285,11 @@ export class EmailService {
       subject: `Payout Receipt — R${amount} ✓`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #0D9488;">Payout Successful!</h2>
+          <h2 style="color: #FF2D95;">Payout Successful!</h2>
           <p>Hi ${escapeHtml(firstName)},</p>
           <p>Your withdrawal has been processed and the funds have been transferred to your bank account.</p>
           
-          <div style="background: #F0FDFA; border-left: 4px solid #0D9488; padding: 20px; margin: 20px 0; border-radius: 4px;">
+          <div style="background: #FFE8F3; border-left: 4px solid #FF2D95; padding: 20px; margin: 20px 0; border-radius: 4px;">
             <table style="width: 100%; border-collapse: collapse;">
               <tr><td style="padding: 8px; font-weight: bold; width: 40%;">Amount:</td><td style="padding: 8px;">R${escapeHtml(amount)}</td></tr>
               <tr><td style="padding: 8px; font-weight: bold;">Reference:</td><td style="padding: 8px; font-family: monospace;">${escapeHtml(reference)}</td></tr>
@@ -301,7 +301,7 @@ export class EmailService {
           </div>
           
           <p style="color: #6B7280; font-size: 12px;">The funds should appear in your account within 1-2 business days. If you don't see the transfer, please contact support with your reference number.</p>
-          <p style="color: #6B7280; font-size: 12px; margin-top: 20px;">E-RRANDS Team</p>
+          <p style="color: #6B7280; font-size: 12px; margin-top: 20px;">Gigza Team</p>
         </div>
       `,
     });
