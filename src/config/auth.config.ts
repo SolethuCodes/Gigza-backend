@@ -31,9 +31,10 @@ export default registerAs('auth', () => ({
     'http://localhost:4000/api/v1/auth/facebook/callback',
   ),
   bcryptRounds: parseInt(process.env['BCRYPT_ROUNDS'] ?? '12', 10),
-  mobileAppScheme: process.env['MOBILE_APP_SCHEME'] ?? 'errands',
+  mobileAppScheme: process.env['MOBILE_APP_SCHEME'] ?? 'gigza',
+  androidPackage: process.env['ANDROID_PACKAGE'] ?? 'com.gigza.app',
   // Native Sign in with Apple (iOS). The identity token's `aud` claim is the
   // app's bundle id for the native flow.
-  appleBundleId: process.env['APPLE_BUNDLE_ID'] ?? 'co.za.errands.app',
+  appleBundleId: process.env['APPLE_BUNDLE_ID'] ?? 'com.gigza.app',
   appleTeamId: process.env['APPLE_TEAM_ID'],
 }));

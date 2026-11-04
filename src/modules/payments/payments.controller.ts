@@ -6,6 +6,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
 
 @ApiTags('payments')
@@ -13,7 +14,10 @@ import type { Request, Response } from 'express';
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name);
 
-  constructor(private readonly payments: PaymentsService) {}
+  constructor(
+    private readonly payments: PaymentsService,
+    private readonly config: ConfigService,
+  ) {}
 
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
@@ -177,9 +181,11 @@ export class PaymentsController {
 
   private sendAppRedirect(res: Response, outcome: 'success' | 'cancel', bookingId?: string) {
     const bookingParam = bookingId ? `?bookingId=${encodeURIComponent(bookingId)}` : '';
-    const schemeUrl = `errands://payment/${outcome}${bookingParam}`;
-    const intentUrl = `intent://payment/${outcome}${bookingParam}#Intent;scheme=errands;package=co.za.errands.app;end`;
+    const scheme = this.config.get<string>('auth.mobileAppScheme', 'gigza');
+    const androidPackage = this.config.get<string>('auth.androidPackage', 'com.gigza.app');
+    const schemeUrl = `${scheme}://payment/${outcome}${bookingParam}`;
+    const intentUrl = `intent://payment/${outcome}${bookingParam}#Intent;scheme=${scheme};package=${androidPackage};end`;
     res.setHeader('Content-Type', 'text/html');
-    return res.send(`<!doctype html><html><head><meta charset="utf-8" /><title>Returning to app</title><style>body{font-family:sans-serif;padding:24px;background:#f8fafc;color:#0f172a;}a.button{display:inline-block;margin-top:24px;padding:14px 20px;background:#0d9488;color:white;border-radius:12px;text-decoration:none;}p{max-width:600px;line-height:1.65;}</style></head><body><h1>Returning to the app</h1><p>If the app does not open automatically, tap the button below to continue.</p><p><strong>${outcome === 'success' ? 'Return' : 'Cancel'} URL:</strong><br/>${schemeUrl}</p><a class="button" href="${schemeUrl}">Open E-RRANDS</a><script>const url = /Android/i.test(navigator.userAgent) ? '${intentUrl}' : '${schemeUrl}'; window.location.replace(url); setTimeout(() => window.location.replace('${schemeUrl}'), 500);</script></body></html>`);
+    return res.send(`<!doctype html><html><head><meta charset="utf-8" /><title>Returning to app</title><style>body{font-family:sans-serif;padding:24px;background:#f8fafc;color:#0f172a;}a.button{display:inline-block;margin-top:24px;padding:14px 20px;background:#FF2D95;color:white;border-radius:12px;text-decoration:none;}p{max-width:600px;line-height:1.65;}</style></head><body><h1>Returning to the app</h1><p>If the app does not open automatically, tap the button below to continue.</p><p><strong>${outcome === 'success' ? 'Return' : 'Cancel'} URL:</strong><br/>${schemeUrl}</p><a class="button" href="${schemeUrl}">Open Gigza</a><script>const url = /Android/i.test(navigator.userAgent) ? '${intentUrl}' : '${schemeUrl}'; window.location.replace(url); setTimeout(() => window.location.replace('${schemeUrl}'), 500);</script></body></html>`);
   }
 }

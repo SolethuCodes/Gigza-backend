@@ -327,7 +327,7 @@ export class AuthController {
   }
 
   private async completeOAuthRedirect(req: Request & { user: OAuthProfile }, res: Response) {
-    const mobileScheme = this.config.get<string>('auth.mobileAppScheme', 'errands');
+    const mobileScheme = this.config.get<string>('auth.mobileAppScheme', 'gigza');
     const { clientState } = await this.resolveOAuthContext(req.query['state'] as string | undefined);
     const stateParam = clientState ? `&state=${encodeURIComponent(clientState)}` : '';
 
