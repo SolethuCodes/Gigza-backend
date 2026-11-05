@@ -74,6 +74,7 @@ describe('BookingsService', () => {
   };
 
   const paymentsMock = {
+    refundDeclinedBooking: jest.fn().mockResolvedValue({ refunded: false }),
     getBreakdown: jest.fn().mockResolvedValue({
       basePrice: 200,
       serviceFee: 0,
@@ -249,6 +250,8 @@ describe('BookingsService', () => {
     expect(notificationsMock.send).toHaveBeenCalledTimes(2);
     expect(wsMock.emitNotification).toHaveBeenCalledTimes(2);
     expect(wsMock.emitBookingUpdate).toHaveBeenCalledWith('booking-1', 'user-1', 'provider-1', 'DECLINED');
+    // A paid booking that's declined gets the host's money back.
+    expect(paymentsMock.refundDeclinedBooking).toHaveBeenCalledWith('booking-1', 'Not available');
   });
 
   it('rejects unauthorized users from changing booking status', async () => {

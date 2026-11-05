@@ -406,18 +406,44 @@ model Payment {
   refundAmount         Decimal?           @db.Decimal(10, 2)
   refundReason         String?
   invoiceNumber        String             @unique @default(cuid())
+  /// Set when this booking was paid together with others in one cart checkout.
+  checkoutId           String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   booking              Booking            @relation(fields: [bookingId], references: [id])
   provider             Provider           @relation("PaymentProvider", fields: [providerId], references: [id])
   user                 User               @relation("PaymentUser", fields: [userId], references: [id])
+  checkout             PaymentCheckout?   @relation(fields: [checkoutId], references: [id], onDelete: SetNull)
   walletTransaction    WalletTransaction?
 
   @@index([userId])
   @@index([providerId])
   @@index([status])
   @@index([invoiceNumber])
+  @@index([checkoutId])
   @@map("payments")
+}
+
+/// One gateway transaction that pays for several bookings at once (the cart).
+/// Each booking keeps its own Payment row, so every talent is paid out — or
+/// refunded — individually from their share.
+model PaymentCheckout {
+  id              String    @id @default(cuid())
+  userId          String
+  /// Gateway reference, `cart_<id>_<timestamp>` for Paystack.
+  reference       String?   @unique
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("ZAR")
+  /// PENDING until the gateway confirms, then PAID.
+  status          String    @default("PENDING")
+  paidAt          DateTime?
+  gatewayResponse Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  payments        Payment[]
+
+  @@index([userId])
+  @@map("payment_checkouts")
 }
 
 model Wallet {

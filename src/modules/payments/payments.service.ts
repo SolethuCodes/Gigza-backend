@@ -7,6 +7,9 @@ import { BookingsService } from '../bookings/bookings.service';
 import Stripe from 'stripe';
 import * as crypto from 'crypto';
 
+/** Bookings one cart checkout can pay for at once. */
+export const MAX_CART_ITEMS = 10;
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -394,6 +397,218 @@ export class PaymentsService {
     };
   }
 
+  /**
+   * Cart checkout: one Paystack transaction for several "pay now" bookings.
+   * Every booking keeps its own Payment row (linked to a PaymentCheckout), so
+   * each talent is paid out — or refunded — from their own share.
+   */
+  async initiatePaystackCheckout(userId: string, bookingIds: string[]) {
+    const ids = [...new Set(bookingIds)];
+    this.logger.log(`initiatePaystackCheckout userId=${userId} bookings=${ids.length}`);
+    if (ids.length === 0) throw new BadRequestException('Add at least one booking to check out');
+    if (ids.length > MAX_CART_ITEMS) {
+      throw new BadRequestException(`A cart can hold up to ${MAX_CART_ITEMS} bookings`);
+    }
+
+    const paystackSecretKey = this.config.get<string>('payment.paystackSecretKey');
+    if (!paystackSecretKey) throw new BadRequestException('Paystack is not configured');
+    const returnUrl = this.config.get<string>('payment.paystackReturnUrl');
+    if (!returnUrl) throw new BadRequestException('Paystack return URL is not configured');
+
+    const bookings = await this.prisma.booking.findMany({ where: { id: { in: ids } } });
+    if (bookings.length !== ids.length) throw new NotFoundException('One of the bookings in your cart no longer exists');
+    for (const booking of bookings) {
+      if (booking.userId !== userId) throw new BadRequestException('You can only pay for your own bookings');
+      if (booking.status !== 'AWAITING_PAYMENT') {
+        throw new BadRequestException('One of the bookings in your cart is no longer waiting for payment');
+      }
+    }
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+
+    const checkout = await this.prisma.paymentCheckout.create({ data: { userId, amount: 0 } });
+    let total = 0;
+    for (const booking of bookings) {
+      const breakdown = await this.getBreakdown(booking.id);
+      const existing = await this.prisma.payment.findUnique({ where: { bookingId: booking.id } });
+      this.assertOnlineCheckoutAllowed(existing, 'PAYSTACK');
+      if (existing && existing.status !== 'PENDING' && existing.status !== 'PROCESSING') {
+        throw new BadRequestException('One of the bookings in your cart has already been paid');
+      }
+      const fields = {
+        amount: breakdown.amount,
+        commissionAmount: breakdown.commissionAmount,
+        commissionRate: breakdown.commissionRate,
+        providerEarnings: breakdown.providerEarnings,
+        paymentMethod: 'CARD' as const,
+        paymentGateway: 'MANUAL' as const,
+        status: 'PENDING' as const,
+        checkoutId: checkout.id,
+      };
+      if (existing) {
+        await this.prisma.payment.update({
+          where: { id: existing.id },
+          data: { ...fields, failedAt: null, failureReason: null },
+        });
+      } else {
+        await this.prisma.payment.create({
+          data: { ...fields, bookingId: booking.id, userId, providerId: booking.providerId },
+        });
+      }
+      total += Number(breakdown.totalAmount);
+    }
+    total = Math.round(total * 100) / 100;
+
+    const reference = `cart_${checkout.id}_${Date.now()}`;
+    const response = await fetch('https://api.paystack.co/transaction/initialize', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${paystackSecretKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: user.email,
+        amount: Math.round(total * 100),
+        reference,
+        // The app opens the first booking's tracker; the rest are under My Bookings.
+        callback_url: `${returnUrl}?bookingId=${encodeURIComponent(ids[0])}`,
+        metadata: { checkoutId: checkout.id, bookingIds: ids, userId },
+        channels: ['card', 'bank', 'ussd', 'mobile_money', 'bank_transfer'],
+      }),
+    });
+    const data = (await response.json()) as any;
+    if (!response.ok || !data?.status || !data?.data?.authorization_url) {
+      this.logger.error(`Paystack cart initialize failed status=${response.status} message=${data?.message ?? 'unknown'}`);
+      await this.prisma.paymentCheckout.update({ where: { id: checkout.id }, data: { status: 'FAILED' } });
+      throw new BadRequestException(data?.message ?? 'Failed to initialize Paystack payment');
+    }
+
+    await this.prisma.paymentCheckout.update({
+      where: { id: checkout.id },
+      data: {
+        reference,
+        amount: total,
+        gatewayResponse: { provider: 'paystack', reference, accessCode: data.data.access_code },
+      },
+    });
+    await this.prisma.payment.updateMany({
+      where: { checkoutId: checkout.id },
+      data: { gatewayPaymentToken: reference },
+    });
+
+    return { checkoutId: checkout.id, checkoutUrl: data.data.authorization_url, reference, total, bookingIds: ids };
+  }
+
+  /**
+   * Settle every booking in a cart once Paystack confirms the transaction.
+   * Idempotent: return redirect, webhook and verify can all land here.
+   * Returns the first booking id (for the app redirect), or null if unknown.
+   */
+  private async settleCheckout(reference: string, transaction: any): Promise<string | null> {
+    const checkout = await this.prisma.paymentCheckout.findUnique({
+      where: { reference },
+      include: { payments: { orderBy: { createdAt: 'asc' } } },
+    });
+    if (!checkout) {
+      this.logger.warn(`settleCheckout: no checkout for reference=${reference}`);
+      return null;
+    }
+
+    const paidCents = Number(transaction?.amount ?? 0);
+    const expectedCents = Math.round(Number(checkout.amount) * 100);
+    if (transaction?.status !== 'success' || paidCents < expectedCents) {
+      this.logger.error(
+        `settleCheckout: not settling checkout=${checkout.id} status=${transaction?.status} paid=${paidCents} expected=${expectedCents}`,
+      );
+      throw new BadRequestException('Paystack payment not successful');
+    }
+
+    for (const payment of checkout.payments) {
+      if (payment.status === 'PENDING' || payment.status === 'PROCESSING') {
+        // gatewayTransactionId is unique per payment, so suffix the shared reference.
+        await this.markPaymentCompleted(payment, `${reference}:${payment.id}`, transaction);
+      }
+    }
+    if (checkout.status !== 'PAID') {
+      await this.prisma.paymentCheckout.update({
+        where: { id: checkout.id },
+        data: { status: 'PAID', paidAt: new Date(), gatewayResponse: transaction },
+      });
+    }
+    return checkout.payments[0]?.bookingId ?? null;
+  }
+
+  /**
+   * Refund a talent's share when they decline a booking that was already paid
+   * online through Paystack (on its own or as part of a cart). Partial refunds
+   * leave the rest of a cart untouched. Never throws — failures are logged and
+   * the host is told support will follow up.
+   */
+  async refundDeclinedBooking(bookingId: string, reason?: string): Promise<{ refunded: boolean }> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { bookingId },
+      include: { checkout: { select: { reference: true } } },
+    });
+    if (!payment || payment.status !== 'COMPLETED' || payment.payoutReleased) return { refunded: false };
+
+    const reference = payment.checkout?.reference ?? payment.gatewayPaymentToken ?? '';
+    const paystackSecretKey = this.config.get<string>('payment.paystackSecretKey');
+    if (!(reference.startsWith('cart_') || reference.startsWith('pay_')) || !paystackSecretKey) {
+      this.logger.warn(`refundDeclinedBooking: booking=${bookingId} was not paid via Paystack — refund manually`);
+      return { refunded: false };
+    }
+
+    const amount = Number(payment.amount);
+    try {
+      const response = await fetch('https://api.paystack.co/refund', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${paystackSecretKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transaction: reference,
+          amount: Math.round(amount * 100),
+          merchant_note: `Booking ${bookingId} declined by talent`,
+          customer_note: 'Refund for a Gigza booking the talent could not take',
+        }),
+      });
+      const data = (await response.json()) as any;
+      if (!response.ok || !data?.status) throw new Error(data?.message ?? `HTTP ${response.status}`);
+
+      await this.prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: 'REFUNDED',
+          refundedAt: new Date(),
+          refundAmount: amount,
+          refundReason: reason?.trim() || 'Declined by talent',
+        },
+      });
+      this.logger.log(`Refunded R${amount.toFixed(2)} for declined booking=${bookingId} reference=${reference}`);
+      void this.notifications
+        .send(
+          payment.userId,
+          'PAYMENT_RECEIVED',
+          'Refund on its way',
+          `R${amount.toFixed(2)} for a booking that was declined is being refunded to your card. It usually shows within 5–10 business days.`,
+          { bookingId, type: 'payment_refunded' },
+          'user',
+        )
+        .catch(() => undefined);
+      return { refunded: true };
+    } catch (err) {
+      this.logger.error(`Paystack refund failed booking=${bookingId} reference=${reference}: ${err}`);
+      await this.prisma.payment
+        .update({ where: { id: payment.id }, data: { failureReason: `Refund failed: ${String(err).slice(0, 180)}` } })
+        .catch(() => undefined);
+      void this.notifications
+        .send(
+          payment.userId,
+          'PAYMENT_FAILED',
+          'Refund needs attention',
+          `We couldn't refund R${amount.toFixed(2)} automatically for a declined booking. Our team will process it — no action needed.`,
+          { bookingId, type: 'payment_refund_failed' },
+          'user',
+        )
+        .catch(() => undefined);
+      return { refunded: false };
+    }
+  }
+
   async getPayfastCheckoutHtml(paymentId: string): Promise<string> {
     this.logger.log(`getPayfastCheckoutHtml paymentId=${paymentId}`);
     const payment = await this.prisma.payment.findUniqueOrThrow({ where: { id: paymentId } });
@@ -579,6 +794,10 @@ export class PaymentsService {
       throw new BadRequestException('Paystack payment not successful');
     }
 
+    if (reference.startsWith('cart_')) {
+      return this.settleCheckout(reference, verification.data);
+    }
+
     const metadata = verification.data.metadata ?? {};
     const paymentId = metadata.paymentId as string | undefined;
     const payment = paymentId
@@ -615,6 +834,10 @@ export class PaymentsService {
     if (event?.event === 'charge.success') {
       const reference = event?.data?.reference as string | undefined;
       if (!reference) {
+        return { received: true };
+      }
+      if (reference.startsWith('cart_')) {
+        await this.settleCheckout(reference, event.data);
         return { received: true };
       }
       const payment = await this.prisma.payment.findFirst({ where: { gatewayPaymentToken: reference } });
@@ -902,6 +1125,18 @@ export class PaymentsService {
     // initiatePaystack). Lets the app confirm a payment when the host closed the
     // checkout browser before the return redirect fired.
     const paystackReference = payment.gatewayPaymentToken ?? '';
+    // Cart payments share their checkout's reference; settling it settles every booking in the cart.
+    if (paystackReference.startsWith('cart_') && this.config.get<string>('payment.paystackSecretKey')) {
+      try {
+        const verification = await this.verifyPaystackTransaction(paystackReference);
+        if (verification?.data?.status === 'success') {
+          await this.settleCheckout(paystackReference, verification.data);
+          return { status: 'COMPLETED', payment, message: 'Payment confirmed' };
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to verify Paystack cart transaction paymentId=${payment.id} error=${err}`);
+      }
+    }
     if (paystackReference.startsWith('pay_') && this.config.get<string>('payment.paystackSecretKey')) {
       try {
         const verification = await this.verifyPaystackTransaction(paystackReference);

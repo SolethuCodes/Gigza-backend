@@ -7,6 +7,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, AuthenticatedUser } from '../../common/decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
 import { ConfigService } from '@nestjs/config';
+import { PaystackCheckoutDto } from './dto/paystack-checkout.dto';
 import type { Request, Response } from 'express';
 
 @ApiTags('payments')
@@ -67,6 +68,14 @@ export class PaymentsController {
     const result = await this.payments.initiatePaystack(bookingId, user.id);
     this.logger.log(`initiatePaystack completed paymentId=${(result as any)?.paymentId}`);
     return result;
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('paystack/checkout')
+  @ApiOperation({ summary: 'Pay for several bookings (a cart) in one Paystack checkout' })
+  initiatePaystackCheckout(@Body() body: PaystackCheckoutDto, @CurrentUser() user: AuthenticatedUser) {
+    return this.payments.initiatePaystackCheckout(user.id, body.bookingIds);
   }
 
   @Public()

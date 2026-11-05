@@ -333,6 +333,9 @@ export class BookingsService {
     }
 
     if (normalizedStatus === 'DECLINED') {
+      // Paid online already (on its own or in a cart)? Refund this talent's share.
+      notificationTasks.push(this.payments.refundDeclinedBooking(id, reason).then(() => undefined));
+
       const userMessage = reason
         ? `Your booking request has been declined by the provider. Reason: ${reason}`
         : 'Your booking request has been declined by the provider.';
