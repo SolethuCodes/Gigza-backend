@@ -898,6 +898,23 @@ export class PaymentsService {
       }
     }
 
+    // Paystack checkouts are tagged with our own `pay_…` reference (see
+    // initiatePaystack). Lets the app confirm a payment when the host closed the
+    // checkout browser before the return redirect fired.
+    const paystackReference = payment.gatewayPaymentToken ?? '';
+    if (paystackReference.startsWith('pay_') && this.config.get<string>('payment.paystackSecretKey')) {
+      try {
+        const verification = await this.verifyPaystackTransaction(paystackReference);
+        if (verification?.data?.status === 'success' && (payment.status === 'PENDING' || payment.status === 'PROCESSING')) {
+          this.logger.log(`Paystack payment confirmed via verification paymentId=${payment.id}`);
+          await this.markPaymentCompleted(payment, paystackReference, verification);
+          return { status: 'COMPLETED', payment, message: 'Payment confirmed and wallet credited' };
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to verify Paystack transaction paymentId=${payment.id} error=${err}`);
+      }
+    }
+
     this.logger.log(`Payment status still pending paymentId=${payment.id} gateway=${payment.paymentGateway}`);
     return { status: payment.status, payment, message: 'Payment still pending - no confirmation from gateway yet' };
   }
