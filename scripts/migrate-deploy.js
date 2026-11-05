@@ -8,7 +8,8 @@
  * connection drops the lock as soon as migrate exits.
  *
  * Uses DIRECT_URL when set, otherwise derives it from DATABASE_URL by removing
- * Neon's `-pooler` host suffix. Non-Neon URLs are used unchanged.
+ * Neon's `-pooler` host suffix. Non-Neon URLs are used unchanged. The advisory
+ * lock is also disabled outright as a fallback.
  */
 const { spawnSync } = require('node:child_process');
 
@@ -19,14 +20,26 @@ if (!pooledUrl) {
 }
 
 const directUrl = process.env.DIRECT_URL || pooledUrl.replace(/-pooler(\.)/, '$1');
-if (directUrl !== pooledUrl) {
-  console.log('[migrate-deploy] Using a direct (non-pooled) connection for migrations.');
-}
+const hostOf = (url) => {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'unparseable URL';
+  }
+};
+console.log(`[migrate-deploy] Migrating via ${hostOf(directUrl)}${directUrl === pooledUrl ? ' (unchanged DATABASE_URL)' : ' (direct)'}.`);
 
 const result = spawnSync('npx', ['prisma', 'migrate', 'deploy'], {
   stdio: 'inherit',
   shell: process.platform === 'win32',
-  env: { ...process.env, DATABASE_URL: directUrl },
+  env: {
+    ...process.env,
+    DATABASE_URL: directUrl,
+    // Belt and braces: even if the URL above still routes through a pooler,
+    // skip the advisory lock altogether. Safe here — there is a single
+    // instance and Render runs deploys one at a time.
+    PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: '1',
+  },
 });
 
 process.exit(result.status ?? 1);
