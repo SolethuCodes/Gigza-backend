@@ -3,8 +3,8 @@
  *   - styles (service categories) for each kind of talent: DJ genres, MC,
  *     photography and dance styles
  *   - a demo host login and a demo DJ login (both pre-verified)
- *   - KYC-approved showcase DJs, MCs, photographers and dancers with packages,
- *     spread across SA
+ *   - KYC-approved showcase DJs, MCs, photographers and dancers with packages
+ *     and portfolio photos, spread across SA
  *
  * Idempotent: re-running updates the same records. Every demo account uses a
  * `@demo.gigza.co.za` email so it's easy to find and remove.
@@ -203,6 +203,64 @@ const TALENT = [
 
 const talentEmail = (t) => (t.login ? `dj${DEMO_DOMAIN}` : `${t.key}${DEMO_DOMAIN}`);
 
+// Portfolio photos per talent key: [photo, caption]. Feeds the Showcase tab.
+const PORTFOLIOS = {
+  dj: [
+    [PHOTOS.club, 'Friday residency, Rosebank'],
+    [PHOTOS.lights, 'EDM night — full light rig'],
+  ],
+  nova: [
+    [PHOTOS.crowd, 'Amapiano sundowner, Sandton rooftop'],
+    [PHOTOS.wedding, 'Wedding reception — dance floor packed till late'],
+    [PHOTOS.decks, 'Behind the decks'],
+  ],
+  lerato: [
+    [PHOTOS.booth, 'Deep house lounge set, City Bowl'],
+    [PHOTOS.lights, 'Corporate year-end function'],
+  ],
+  zulu: [
+    [PHOTOS.stage, 'Festival main stage, Durban'],
+    [PHOTOS.club, 'Gqom takeover'],
+    [PHOTOS.crowd, 'Street party, Durban Central'],
+  ],
+  blaze: [
+    [PHOTOS.crowd, '21st birthday, Soweto'],
+    [PHOTOS.mixer, 'Campus bash — MC + DJ combo'],
+  ],
+  sunset: [
+    [PHOTOS.wedding, 'Garden wedding, Hatfield'],
+    [PHOTOS.lights, 'Afrobeats garden party'],
+    [PHOTOS.stage, 'Matric farewell'],
+  ],
+  thabo: [
+    [PHOTOS.micVintage, 'Hosting a Braamfontein launch'],
+    [PHOTOS.conference, 'Corporate awards, Sandton'],
+    [PHOTOS.bride, 'Wedding MC — bilingual programme'],
+  ],
+  naledi: [
+    [PHOTOS.concert, 'Festival crowd warm-up'],
+    [PHOTOS.micStudio, 'Radio guest spot'],
+  ],
+  ayanda: [
+    [PHOTOS.bride, 'Umhlanga beach wedding'],
+    [PHOTOS.danceFloor, 'Reception dance floor, candid'],
+    [PHOTOS.cameraFilm, 'Film photos from a rehearsal dinner'],
+  ],
+  kgomotso: [
+    [PHOTOS.cameraLenses, 'Brand content shoot'],
+    [PHOTOS.crowd, '30th birthday coverage'],
+  ],
+  kasi: [
+    [PHOTOS.breakdance, 'Pantsula showcase, Soweto'],
+    [PHOTOS.streetDance, 'Music video shoot'],
+    [PHOTOS.danceFloor, 'Wedding flash mob'],
+  ],
+  rhythm: [
+    [PHOTOS.contemporary, 'First dance choreography'],
+    [PHOTOS.streetDance, 'Corporate show piece'],
+  ],
+};
+
 async function remove() {
   const providers = await prisma.provider.deleteMany({ where: { email: { endsWith: DEMO_DOMAIN } } });
   const users = await prisma.user.deleteMany({ where: { email: { endsWith: DEMO_DOMAIN } } });
@@ -298,7 +356,22 @@ async function seed() {
         data: { providerId: provider.id, categoryId: styleIds[slug], basePrice: cheapest, yearsExperience: 3 },
       });
     }
-    console.log(`✓ ${dj.login ? 'demo DJ login' : 'showcase talent'} ${dj.firstName} ${dj.lastName} <${email}>`);
+    // Portfolio isn't referenced elsewhere, so it is simply rebuilt.
+    const portfolio = PORTFOLIOS[dj.key] ?? [];
+    await prisma.portfolioItem.deleteMany({ where: { providerId: provider.id } });
+    await prisma.portfolioItem.createMany({
+      data: portfolio.map(([imageUrl, caption], sortOrder) => ({
+        providerId: provider.id,
+        type: 'PHOTO',
+        imageUrl,
+        caption,
+        sortOrder,
+        // Stagger timestamps so the Showcase feed has a believable mix.
+        createdAt: new Date(Date.now() - (sortOrder * 3 + dj.joinedDaysAgo % 7) * DAY),
+      })),
+    });
+
+    console.log(`✓ ${dj.login ? 'demo DJ login' : 'showcase talent'} ${dj.firstName} ${dj.lastName} <${email}> · ${portfolio.length} portfolio photos`);
   }
 
   console.log(`\nDemo logins (password for both: ${DEMO_PASSWORD})`);

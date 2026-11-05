@@ -208,6 +208,7 @@ model Provider {
   suggestedCategories ServiceCategory[]        @relation("SuggestedCategories")
   conversations      Conversation[]           @relation("ProviderConversations")
   completionTokensScanned BookingCompletionToken[] @relation("CompletionTokenScannedBy")
+  portfolioItems     PortfolioItem[]
 
   @@index([email])
   @@index([phone])
@@ -215,6 +216,26 @@ model Provider {
   @@index([kycStatus])
   @@index([deletedAt])
   @@map("providers")
+}
+
+/// A piece of a talent's past work: an uploaded photo, or a link to a video,
+/// mix or post elsewhere (YouTube, Instagram, TikTok, SoundCloud…).
+model PortfolioItem {
+  id         String   @id @default(cuid())
+  providerId String
+  /// PHOTO (imageUrl set) or LINK (linkUrl set, imageUrl optional thumbnail).
+  type       String
+  imageUrl   String?
+  linkUrl    String?
+  caption    String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  provider   Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, sortOrder])
+  @@index([createdAt])
+  @@map("portfolio_items")
 }
 
 model ServiceCategory {

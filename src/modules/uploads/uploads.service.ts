@@ -8,7 +8,7 @@ export class UploadsService {
   }
   async upload(file: Express.Multer.File, folder: string) {
     return new Promise<{ url: string; publicId: string }>((resolve, reject) => {
-      const stream = cloudinary.uploader.upload_stream({ folder: `e-rrands/${folder}`, resource_type: 'auto', transformation: [{ quality: 'auto', fetch_format: 'auto' }] }, (error, result) => {
+      const stream = cloudinary.uploader.upload_stream({ folder: `gigza/${folder}`, resource_type: 'auto', transformation: [{ quality: 'auto', fetch_format: 'auto' }] }, (error, result) => {
         if (error || !result) return reject(error);
         resolve({ url: result.secure_url, publicId: result.public_id });
       });

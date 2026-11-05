@@ -9,6 +9,7 @@ import * as winston from 'winston';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProvidersModule } from './modules/providers/providers.module';
+import { PortfolioModule } from './modules/portfolio/portfolio.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { ServicesModule } from './modules/services/services.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
@@ -102,6 +103,7 @@ if (!existsSync(logDir)) mkdirSync(logDir, { recursive: true });
     AuthModule,
     UsersModule,
     ProvidersModule,
+    PortfolioModule,
     CategoriesModule,
     ServicesModule,
     BookingsModule,
