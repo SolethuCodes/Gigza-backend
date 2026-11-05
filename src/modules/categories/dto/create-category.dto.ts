@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean, IsNumber, Min, IsIn } from 'class-validator';
+import { TALENT_TYPES, type TalentType } from '../../../common/constants/talent-types';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Garden Maintenance' })
@@ -32,4 +33,9 @@ export class CreateCategoryDto {
   @IsNumber()
   @Min(0)
   sortOrder?: number;
+
+  @ApiProperty({ enum: TALENT_TYPES, example: 'DJ', required: false })
+  @IsOptional()
+  @IsIn(TALENT_TYPES)
+  talentType?: TalentType;
 }

@@ -1,5 +1,7 @@
 /**
- * Rebrands the remote app config row (left over from the E-RRANDS fork) to Gigza.
+ * Rebrands the remote app config row (left over from the E-RRANDS fork) to Gigza,
+ * and keeps its copy in line with the talent types hosts can book (DJs, MCs,
+ * photographers, dancers). Safe to re-run.
  * The mobile app applies colorPrimary/colorAccent/colorTeal over its theme and
  * shows these taglines/slides/FAQs, so stale values leak Errands navy + gold.
  *
@@ -15,7 +17,7 @@ const GIGZA = {
   platformName: 'GIGZA',
   taglineUser: 'Any Vibe, Any Night',
   taglineProvider: 'Get booked. Grow your fanbase.',
-  splashTagline: 'DJ Booking Platform',
+  splashTagline: 'Book DJs, MCs, photographers & dancers',
   poweredBy: '',
   // White app with black as the primary colour, pink + purple as brand accents.
   colorPrimary: '#0A0A0A',
@@ -23,21 +25,21 @@ const GIGZA = {
   colorTeal: '#8B5CF6',
   supportEmail: 'support@gigza.co.za',
   maintenanceMessage: 'GIGZA is temporarily unavailable while we finish a platform update. Please try again shortly.',
-  websiteHeadline: 'Book your DJ, in minutes.',
-  websiteSubheadline: 'Verified DJs for weddings, parties and events — paid securely in South Africa.',
+  websiteHeadline: 'Book talent for your event, in minutes.',
+  websiteSubheadline: 'Verified DJs, MCs, photographers and dancers for weddings, parties and events — paid securely in South Africa.',
   websiteFooter: '© GIGZA.',
   onboardingSlides: [
     {
       key: 'discover',
       kicker: 'Discover',
-      title: 'Find the right DJ, fast',
-      body: 'Book verified DJs for weddings, parties, and club nights — all in one app.',
+      title: 'Find the right talent, fast',
+      body: 'Book verified DJs, MCs, photographers and dancers for weddings, parties and events — all in one app.',
     },
     {
       key: 'verified',
       kicker: 'Verified',
-      title: 'Every DJ is vetted',
-      body: 'ID checks and admin approval keep DJs accountable before they accept a gig.',
+      title: 'Everyone is vetted',
+      body: 'ID checks and admin approval keep talent accountable before they accept a gig.',
     },
     {
       key: 'secure',
@@ -48,9 +50,9 @@ const GIGZA = {
   ],
   faqs: [
     {
-      question: 'How do I book a DJ?',
+      question: 'How do I book talent?',
       answer:
-        'Browse Discover or Home, pick a DJ or package, choose your event date and time, and confirm your booking details. You’ll get a confirmation once the DJ accepts.',
+        'Browse Discover or Home, pick a DJ, MC, photographer or dancer and one of their packages, choose your event date and time, and confirm your booking details. You’ll get a confirmation once they accept.',
     },
     {
       question: 'How and when do I pay?',
@@ -60,12 +62,12 @@ const GIGZA = {
     {
       question: 'Can I cancel or reschedule a booking?',
       answer:
-        'Yes. Open the booking from My Bookings and choose to cancel or message the DJ to reschedule, up until the gig has started.',
+        'Yes. Open the booking from My Bookings and choose to cancel or message them to reschedule, up until the gig has started.',
     },
     {
-      question: 'How are DJs verified?',
+      question: 'How is talent verified?',
       answer:
-        'Every DJ on GIGZA completes DJ Verification (ID checks) before they can accept bookings, so you always know who’s playing your event.',
+        'Everyone on GIGZA completes Talent Verification (ID checks) before they can accept bookings, so you always know who’s coming to your event.',
     },
   ],
 };
@@ -86,7 +88,7 @@ function rebrandDoc(doc) {
   await prisma.appConfigSnapshot.create({
     data: {
       version: row.version,
-      label: 'Before Gigza rebrand',
+      label: 'Before Gigza copy update',
       reason: 'Automatic backup from scripts/brand-gigza-app-config.js',
       payload: JSON.parse(JSON.stringify(row)),
     },

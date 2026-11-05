@@ -225,6 +225,10 @@ model ServiceCategory {
   iconUrl         String?
   isActive        Boolean                   @default(true)
   sortOrder       Int                       @default(0)
+  /// Kind of talent this style belongs to: DJ, MC, PHOTOGRAPHER or DANCER
+  /// (see src/common/constants/talent-types.ts). Plain text so new kinds of
+  /// talent need no migration.
+  talentType      String                    @default("DJ")
   status          CategoryStatus            @default(APPROVED)
   suggestedByProviderId String?
   createdAt       DateTime                  @default(now())
@@ -233,6 +237,7 @@ model ServiceCategory {
   providers       ProviderServiceCategory[]
   services        Service[]
 
+  @@index([talentType])
   @@map("service_categories")
 }
 

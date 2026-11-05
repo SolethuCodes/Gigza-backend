@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { SuggestCategoryDto } from './dto/suggest-category.dto';
+import { DEFAULT_TALENT_TYPE } from '../../common/constants/talent-types';
 
 function slugify(value: string): string {
   return value
@@ -73,12 +74,37 @@ export class CategoriesService {
         name,
         slug: await this.uniqueSlug(slugify(name)),
         description: dto.description?.trim() || `${name} services`,
+        talentType: dto.talentType ?? (await this.providerTalentType(providerId)),
         isActive: false,
         status: 'PENDING',
         sortOrder: 0,
         suggestedByProviderId: providerId,
       },
     });
+  }
+
+  /**
+   * The kind of talent a provider offers, read from the categories they already
+   * list under (most common wins). New providers default to DJ.
+   */
+  private async providerTalentType(providerId: string): Promise<string> {
+    const links = await this.prisma.providerServiceCategory.findMany({
+      where: { providerId },
+      select: { category: { select: { talentType: true } } },
+    });
+    const counts = new Map<string, number>();
+    for (const { category } of links) {
+      counts.set(category.talentType, (counts.get(category.talentType) ?? 0) + 1);
+    }
+    let best: string = DEFAULT_TALENT_TYPE;
+    let bestCount = 0;
+    for (const [type, count] of counts) {
+      if (count > bestCount) {
+        best = type;
+        bestCount = count;
+      }
+    }
+    return best;
   }
 
   async approve(id: string) {
@@ -155,6 +181,7 @@ export class CategoriesService {
         name,
         slug: await this.uniqueSlug(slugify(name)),
         description: input.categoryDescription?.trim() || `${name} services`,
+        talentType: await this.providerTalentType(providerId),
         isActive: false,
         status: 'PENDING',
         sortOrder: 0,
