@@ -7,7 +7,7 @@
     "dev": "ts-node --project tsconfig.json --transpile-only src/main.ts",
     "dev:watch": "nest start --watch",
     "dev:smtp": "maildev --smtp 1025 --web 1081",
-    "start": "npx prisma migrate deploy && node dist/main",
+    "start": "node scripts/migrate-deploy.js && node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "type-check": "tsc --noEmit",
     "test": "jest",
